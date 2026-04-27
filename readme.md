@@ -46,4 +46,9 @@ python main.py "您的备份压缩包路径.zip"
 终端将实时输出进度，完成后会在同目录下生成高保真的 `markdown/` 和 `assets/` 资料库。
 
 ---
+
+### 测试通过版本
+- com.miui.notes 版本2.3.5.7 (2357)
+- com.miui.backup 版本7.1.0.1-OS3 (7101)
+
 **Antigravity 荣誉出品** - *致力于让数据回归自由，让记忆永不消散。*
