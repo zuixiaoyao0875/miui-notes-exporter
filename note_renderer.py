@@ -8,6 +8,7 @@
 import os
 import json
 import re
+import html
 from datetime import datetime
 from pathlib import Path
 
@@ -58,6 +59,9 @@ class MiNoteToMarkdown:
     def parse_rich_text(self, text, assets_map=None):
         """解析 MIUI 富文本标签为 Markdown"""
         if not text: return ""
+        
+        # 0. 预处理：解码 HTML 实体（如 &lt;, &gt;, &amp; 等）
+        text = html.unescape(str(text))
         
         # 1. 转换超链接 <a>
         text = re.sub(r'<a\s+href="([^"]+)"[^>]*>(.*?)</a>', r'[\2](\1)', text, flags=re.IGNORECASE)
@@ -163,15 +167,32 @@ class MiNoteToMarkdown:
 
         payload = data.get("payload", {})
         # 获取备用标题，并清理换行符，严格限制长度
+        # 获取备用标题
         raw_title = payload.get("title")
         if not raw_title or not str(raw_title).strip():
             raw_title = payload.get("snippet") or "Untitled"
-            # 移除换行和占位符以作为备用标题
-            raw_title = re.sub(r'☺\s*[a-fA-F0-9]{40}.*?', '', str(raw_title))
-            raw_title = re.sub(r'<[^>]*>', '', raw_title)
-            raw_title = raw_title.replace('\n', ' ').strip()
         
-        title = str(raw_title)[:50] # 压缩为最多 50 个字符
+        # 1. 解码 HTML 实体（多次解码以防万一，并确保标签被还原）
+        raw_title = html.unescape(html.unescape(str(raw_title)))
+        
+        # 2. 移除 MIUI 特有的占位符
+        raw_title = re.sub(r'☺\s*[a-fA-F0-9]{40}.*?', '', raw_title)
+        
+        # 3. 移除 <style> 和 <script> 及其内部内容
+        raw_title = re.sub(r'(?is)<style.*?>.*?</style>', '', raw_title)
+        raw_title = re.sub(r'(?is)<script.*?>.*?</script>', '', raw_title)
+        
+        # 4. 移除所有剩余 HTML 标签（包括 <!DOCTYPE> 和注释）
+        raw_title = re.sub(r'<(?:[^"\'>]|"[^"]*"|\'[^\']*\')*>', '', raw_title)
+        
+        # 5. 清理空白字符：将所有换行、制表符、多个空格合并为一个空格
+        raw_title = re.sub(r'\s+', ' ', raw_title).strip()
+        
+        # 6. 如果清理后变为空，使用默认值
+        if not raw_title:
+            raw_title = "Untitled"
+            
+        title = raw_title[:50].strip() # 压缩为最多 50 个字符
         
         # 兼容多种可能的时间戳字段名
         created_ts = payload.get("creation_date") or payload.get("creation_time") or payload.get("tag_4")
