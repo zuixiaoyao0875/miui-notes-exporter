@@ -144,15 +144,20 @@ class MiNoteToMarkdown:
             return html_video
         text = re.sub(r'<video[^>]*fileid="([^"]+)"[^>]*>', replace_video_placeholder, text, flags=re.IGNORECASE)
         
-        # 10. 处理换行
+        # 10. 处理换行（保留原始换行，仅将 <br> 统一）
         text = re.sub(r'<br\s*/?>', '\n', text, flags=re.IGNORECASE)
         
-        # 11. 清理所有残留的 XML 式专有标签，但保留已注入的合法 HTML 标签
-        text = re.sub(r'</?(?!(?:u|mark|div|a|audio|video|source)\b)[a-zA-Z0-9-]+[^>]*>', '', text, flags=re.IGNORECASE)
+        # 11. 清理 MIUI 专有的 XML 式标签，但保留标准的 HTML 标签
+        # 我们只移除已知的 MIUI 专有标签，以免破坏 HTML 笔记的内容
+        miui_tags = ['text', 'object', 'gallery', 'voice', 'todo', 'link', 'list', 'item']
+        miui_tags_regex = r'</?(?:' + '|'.join(miui_tags) + r')\b[^>]*>'
+        text = re.sub(miui_tags_regex, '', text, flags=re.IGNORECASE)
         
-        # 12. 保证 Markdown 强制换行（在非空行末尾添加两个空格）
-        lines = text.split('\n')
-        text = '\n'.join([line + '  ' if line.strip() and not line.endswith('  ') else line for line in lines])
+        # 12. 保证 Markdown 强制换行（仅对普通文本行生效，避免破坏 HTML 结构）
+        # 如果检测到明显的 HTML 结构，则减少干预
+        if not (text.lstrip().startswith('<!DOCTYPE') or text.lstrip().startswith('<html')):
+            lines = text.split('\n')
+            text = '\n'.join([line + '  ' if line.strip() and not line.endswith('  ') and '<' not in line else line for line in lines])
         
         return text
 
